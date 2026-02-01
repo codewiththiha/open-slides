@@ -1,73 +1,88 @@
-# React + TypeScript + Vite
+# OpenSlides
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**OpenSlides** is a specialized presentation tool designed for developers to create high-quality code presentations and videos with seamless "magic move" transitions between snippets. Powered by **Remotion** and **Shiki Magic Move**, it allows users to animate code changes smoothly, making it ideal for tutorials, live demos, and technical storytelling.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## React Compiler
+* **Magic Move Transitions:** Smoothly animate code changes between slides using `shiki-magic-move`.
+* **Real-time Preview:** Interactive editor with an instant preview of the current slide.
+* **Video Export:** Preview and prepare videos for export using Remotion's frame-accurate rendering engine.
+* **Customizable Themes:** Choose from 16+ professional syntax highlighting themes (e.g., Dracula, Nord, Github Dark).
+* **Flexible Layouts:** Drag-and-drop slide reordering and a dedicated settings panel for fine-tuning animations.
+* **Presentation Mode:** Full-screen mode with keyboard navigation support.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 🛠️ Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+* **Framework:** [React](https://react.dev/) with [Vite](https://vitejs.dev/)
+* **Styling:** [Tailwind CSS](https://tailwindcss.com/) & [Lucide React](https://lucide.dev/) icons
+* **State Management:** [Zustand](https://github.com/pmndrs/zustand)
+* **Animations:** [Shiki Magic Move](https://shiki-magic-move.netlify.app/)
+* **Video Engine:** [Remotion](https://www.remotion.dev/)
+* **Components:** [Radix UI](https://www.radix-ui.com/) primitives
+* **Drag & Drop:** [@dnd-kit](https://dndkit.com/)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 📖 Project Structure
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/
+├── components/
+│   ├── ui/             # Reusable Radix-based components
+│   ├── CodeEditor.tsx  # Slide & animation settings
+│   ├── Sidebar.tsx     # Slide management & reordering
+│   ├── SlidePreview.tsx # Real-time "Magic Move" viewer
+├── remotion/
+│   └── RemotionVideo.tsx # Video composition logic
+├── store/
+│   └── useStore.ts     # Global state for slides and settings
+└── types.ts            # TypeScript definitions
+
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## ⚙️ Configuration & Controls
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Animation Settings
+
+You can control animations globally or per-slide:
+
+* **Transition Duration:** Time taken to move characters between states.
+* **Stagger Delay:** Incremental delay between character movements for a more organic feel.
+
+### Playback
+
+* **Slide Duration:** Set how long each slide remains visible in the final video.
+* **Global Overrides:** Toggle global settings to apply uniform animations across the entire deck.
+
+---
+
+## 🛠️ Getting Started
+
+1. **Install dependencies:**
+```bash
+npm install
+
 ```
+
+
+2. **Run the development server:**
+```bash
+npm run dev
+
+```
+
+
+3. **Export Preview:**
+Click the **Export** button in the header to preview the full Remotion video sequence.
+
+
+---
+
+> [!NOTE]
+> Rendering full MP4 files currently requires a backend or `ffmpeg.wasm` implementation; the Export modal provides a high-fidelity preview of the final animation logic.``
