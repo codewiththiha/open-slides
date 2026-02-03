@@ -1,4 +1,13 @@
+/**
+ * @file all.tsx
+ * @description Bundled UI components built on Radix UI primitives.
+ * @offers
+ * - Tabs, Switch, Slider, Label: Reusable, accessible UI components.
+ * @flow
+ * These components provide the building blocks for the CodeEditor settings and other interactive UI elements.
+ */
 import * as React from "react"
+
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 import * as SwitchPrimitive from "@radix-ui/react-switch"
 import * as SliderPrimitive from "@radix-ui/react-slider"

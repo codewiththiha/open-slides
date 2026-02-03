@@ -1,4 +1,16 @@
+/**
+ * @file CodeEditor.tsx
+ * @description The settings and code input panel for the selected slide.
+ * @offers
+ * - Raw code editing for individual slides.
+ * - Tabbed interface for Code editing and Global Settings.
+ * - Controls for animation (transition, stagger), appearance (theme, font), and playback.
+ * @flow
+ * Changes made in this panel are directly applied to the store, 
+ * which in turn updates the Sidebar thumbnails and the SlidePreview.
+ */
 import { useStore } from '../store/useStore';
+
 import { cn } from '../lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent, Label, Slider, Switch } from './ui/all';
 import type { ThemeName } from '../types';

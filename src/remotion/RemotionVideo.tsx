@@ -1,4 +1,16 @@
+/**
+ * @file RemotionVideo.tsx
+ * @description Defines the Remotion composition for generating high-quality code animations.
+ * @offers
+ * - Shiki-powered syntax highlighting for video.
+ * - Smooth "Magic Move" transitions between code blocks.
+ * - Dynamic frame-based rendering for video export.
+ * @flow
+ * This component maps the presentation state (slides, themes, settings) into a 
+ * time-sequenced animation that can be rendered to MP4.
+ */
 import { AbsoluteFill, useVideoConfig, useCurrentFrame } from 'remotion';
+
 import { ShikiMagicMove } from 'shiki-magic-move/react';
 import { useEffect, useState } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';

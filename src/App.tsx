@@ -1,4 +1,16 @@
+/**
+ * @file App.tsx
+ * @description The main dashboard and layout controller for OpenSlides.
+ * @offers
+ * - Responsive 3-panel layout (Sidebar, SlidePreview, CodeEditor).
+ * - Full-screen presentation mode with keyboard navigation.
+ * - Video export preview using Remotion Player.
+ * @flow
+ * The main app component orchestrates the overall UI state, switching between editor view, 
+ * presentation overlay, and export modal.
+ */
 import { Sidebar } from '@/components/Sidebar';
+
 import { SlidePreview } from '@/components/SlidePreview';
 import { CodeEditor } from '@/components/CodeEditor';
 import { useStore } from '@/store/useStore';

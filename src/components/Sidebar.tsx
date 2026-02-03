@@ -1,4 +1,16 @@
+/**
+ * @file Sidebar.tsx
+ * @description Sidebar component for managing the presentation's slide deck.
+ * @offers
+ * - Drag-and-drop reordering of slides using dnd-kit.
+ * - Visual thumbnails for each slide's code.
+ * - Actions to add or remove slides from the deck.
+ * @flow
+ * Users interact with the sidebar to organize their presentation flow. 
+ * Selecting a slide updates the central editor and preview.
+ */
 import { useStore } from "../store/useStore";
+
 import { cn } from "../lib/utils";
 import { Plus, Trash2, LayoutTemplate, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";

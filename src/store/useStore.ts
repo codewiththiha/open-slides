@@ -1,4 +1,16 @@
+/**
+ * @file useStore.ts
+ * @description Centralized state management for OpenSlides using Zustand.
+ * @offers
+ * - Slide CRUD operations (add, update, remove, reorder).
+ * - Global settings management (theme, font size, animations).
+ * - Persistent or reactive state accessible across all components.
+ * @flow
+ * Components subscribe to this store to get and set application state. 
+ * Any change here triggers re-renders in the UI (e.g., SlidePreview updating after code edits).
+ */
 import { create } from "zustand";
+
 import { v4 as uuidv4 } from "uuid";
 import type { PresentationState, Slide, ThemeName } from "../types";
 

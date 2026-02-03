@@ -1,4 +1,16 @@
+/**
+ * @file SlidePreview.tsx
+ * @description The live preview engine for the current slide.
+ * @offers
+ * - Shiki-powered syntax highlighting with "Magic Move" transitions.
+ * - Dynamic theme and font scaling (adaptive for editor vs. presentation mode).
+ * - Real-time feedback as code is edited.
+ * @flow
+ * This component listens to the current slide's code and settings, 
+ * using `shiki-magic-move` to animate transitions when the slide or code changes.
+ */
 import { ShikiMagicMove } from 'shiki-magic-move/react';
+
 import { useStore } from '../store/useStore';
 import { useEffect, useState } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';

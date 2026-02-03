@@ -1,4 +1,15 @@
+/**
+ * @file types.ts
+ * @description Defines the core data structures and types used throughout the OpenSlides application.
+ * @offers
+ * - Slide: Interface for individual code slides.
+ * - ThemeName: List of supported Shiki code themes.
+ * - PresentationState: Interface for the global application state and actions.
+ * @flow
+ * This file serves as the source of truth for TypeScript types, ensuring consistency between components and the store.
+ */
 export type FontSize = 12 | 14 | 16 | 18 | 20 | 24 | 28 | 32;
+
 
 export interface Slide {
   id: string;
