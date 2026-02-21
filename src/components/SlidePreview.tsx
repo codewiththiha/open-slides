@@ -83,12 +83,12 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
   const slideBg = getThemeBg(theme);
 
   return (
-    <div 
+    <div
       className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl shadow-2xl transition-colors duration-500"
       style={{ backgroundColor: slideBg }}
     >
       <div className={cn(
-        "relative z-10 w-full flex items-center justify-center", 
+        "relative z-10 w-full flex items-center justify-center",
         // If presenting, use much larger padding/container
         props.isPresenting ? "p-32" : "p-12"
       )}>
@@ -96,36 +96,37 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
         <style dangerouslySetInnerHTML={{__html: `
           .shiki-magic-move-container,
           .shiki-magic-move-container pre,
-          .shiki-magic-move-container code { 
-            background-color: transparent !important; 
-            white-space: pre !important; 
+          .shiki-magic-move-container code {
+            background-color: transparent !important;
+            white-space: pre !important;
             display: block !important;
             line-height: var(--line-height) !important;
+            font-size: var(--font-size) !important;
           }
         `}} />
-        
-        <div style={{ 
-          fontSize: !props.isPresenting ? `${fontSize}px` : undefined, 
+
+        <div style={{
           width: '100%',
           // @ts-ignore
-          '--line-height': lineHeight.toString()
+          '--line-height': lineHeight.toString(),
+          // @ts-ignore
+          // Presentation mode uses 1.15x font size for minimal zoom effect
+          // Keeps relative size - small preview = small presentation, just slightly larger
+          '--font-size': props.isPresenting ? `${(fontSize * 1.15).toFixed(1)}px` : `${fontSize}px`
         }}>
           <ShikiMagicMove
-            key={theme} // Force re-render on theme change to ensure new colors apply
+            key={`${theme}-${showLineNumbers}-${fontSize}`} // Force re-render on theme, lineNumbers, or fontSize change
             lang={currentSlide.language}
             theme={theme}
             highlighter={highlighter}
             code={currentSlide.code}
-            options={{ 
-              duration: useGlobalTransition ? globalTransitionDuration : currentSlide.transitionDuration, 
-              stagger: useGlobalStagger ? globalStagger : currentSlide.stagger, 
+            options={{
+              duration: useGlobalTransition ? globalTransitionDuration : currentSlide.transitionDuration,
+              stagger: useGlobalStagger ? globalStagger : currentSlide.stagger,
               lineNumbers: showLineNumbers,
             }}
             className={cn(
-              "shiki-magic-move-container font-medium tracking-wide font-mono",
-              // Use global fontSize if not presenting (custom scaling might be needed)
-              // If presenting, we force a large size, otherwise use the pixel value via style
-              props.isPresenting ? "text-4xl" : "" 
+              "shiki-magic-move-container font-medium tracking-wide font-mono"
             )}
           />
         </div>
