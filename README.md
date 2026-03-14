@@ -75,6 +75,8 @@ src/
 
 ## 🛠️ Getting Started
 
+### Frontend Setup
+
 1. **Install dependencies:**
 ```bash
 npm install
@@ -88,8 +90,28 @@ npm run dev
 3. **Create a Project:**
 Click **New Project** on the dashboard to start your presentation.
 
-4. **Export Preview:**
-Click the **Export** button to preview the full Remotion video sequence.
+### Backend Setup (Optional - for MP4 Export)
+
+1. **Navigate to server directory:**
+```bash
+cd server
+```
+
+2. **Install dependencies:**
+```bash
+npm install
+```
+
+3. **Run the backend server:**
+```bash
+npm start
+```
+
+4. **Export MP4:**
+- Click **Export** in the editor
+- Click **Download MP4** to render and download your video
+
+> **Note:** Backend requires [FFmpeg](https://ffmpeg.org/) installed on your system.
 
 ---
 
@@ -101,5 +123,18 @@ Click the **Export** button to preview the full Remotion video sequence.
 
 ---
 
-> [!NOTE]
-> Rendering full MP4 files currently requires a backend or `ffmpeg.wasm` implementation; the Export modal provides a high-fidelity preview of the final animation logic.
+## 🎬 Video Export
+
+The backend server uses Remotion Renderer to generate MP4 files:
+- **Format:** H.264 MP4 (1920x1080, 30fps)
+- **Quality:** High (CRF 18)
+- **Cleanup:** Files auto-deleted after 1 hour
+
+---
+
+## ⚠️ Troubleshooting
+
+**Download MP4 button not working?**
+- Make sure the backend server is running (`npm start` in `/server`)
+- Check if FFmpeg is installed on your system
+- Verify `VITE_API_URL` in `.env` matches your backend port

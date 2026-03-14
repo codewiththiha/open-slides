@@ -64,7 +64,13 @@ export const useProjectStore = create<ProjectState>()(
         set((state) => ({
           projects: state.projects.map((project) =>
             project.id === id
-              ? { ...project, ...updates, updatedAt: Date.now() }
+              ? { 
+                  ...project, 
+                  ...updates, 
+                  // Deep clone slides to prevent reference sharing
+                  slides: updates.slides ? JSON.parse(JSON.stringify(updates.slides)) : project.slides,
+                  updatedAt: Date.now() 
+                }
               : project
           ),
         }));

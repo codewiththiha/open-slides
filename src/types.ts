@@ -41,6 +41,7 @@ export type ThemeName =
 export interface PresentationState {
   slides: Slide[];
   currentSlideId: string | null;
+  activeProjectId: string | null;
   theme: ThemeName;
   isPlaying: boolean;
   uiMode: 'light' | 'dark';

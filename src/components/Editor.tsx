@@ -3,23 +3,20 @@
  * @description Editor page component that loads project data and provides the editing interface.
  */
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useProjectStore } from '../store/useProjectStore';
-import { useStore } from '../store/useStore';
+import { useStore, initializeStoreWithProject, clearStore } from '../store/useStore';
 import { Sidebar } from '@/components/Sidebar';
 import { SlidePreview } from '@/components/SlidePreview';
 import { CodeEditor } from '@/components/CodeEditor';
-import { Play, Download, Moon, Sun, MonitorPlay, Loader2, X } from 'lucide-react';
-import { Player } from '@remotion/player';
-import { RemotionVideo } from '@/remotion/RemotionVideo';
-import { useState } from 'react';
+import { Moon, Sun, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from "next-themes";
 
 export function Editor() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  
+
   const {
     loadProject,
     updateProject,
@@ -29,6 +26,8 @@ export function Editor() {
   const {
     slides,
     currentSlideId,
+    setCurrentSlide,
+    activeProjectId,
     theme,
     showLineNumbers,
     fontSize,
@@ -40,11 +39,12 @@ export function Editor() {
   } = useStore();
 
   const { theme: systemTheme, setTheme: setSystemTheme } = useTheme();
-  const [isExporting, setIsExporting] = useState(false);
   const [isPresenting, setIsPresenting] = useState(false);
-  const [isProcessing] = useState(false);
   const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Calculate current slide index
+  const currentIndex = slides.findIndex(s => s.id === currentSlideId);
 
   // Keyboard navigation for presentation and editor expand mode
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -52,6 +52,16 @@ export function Editor() {
       if (e.key === 'Escape') {
         e.preventDefault();
         setIsPresenting(false);
+      } else if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        if (currentIndex < slides.length - 1) {
+          setCurrentSlide(slides[currentIndex + 1].id);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentIndex > 0) {
+          setCurrentSlide(slides[currentIndex - 1].id);
+        }
       }
     } else if (isEditorExpanded) {
       if (e.key === 'Escape') {
@@ -59,7 +69,7 @@ export function Editor() {
         setIsEditorExpanded(false);
       }
     }
-  }, [isPresenting, isEditorExpanded]);
+  }, [isPresenting, isEditorExpanded, currentIndex, slides, setCurrentSlide]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -75,31 +85,29 @@ export function Editor() {
 
     const project = loadProject(projectId);
     if (project) {
-      // Sync project data to presentation store
-      useStore.setState({
-        slides: project.slides,
-        currentSlideId: project.currentSlideId,
-        theme: project.theme,
-        showLineNumbers: project.showLineNumbers,
-        fontSize: project.fontSize,
-        lineHeight: project.lineHeight,
-        useGlobalTransition: project.useGlobalTransition,
-        globalTransitionDuration: project.globalTransitionDuration,
-        useGlobalStagger: project.useGlobalStagger,
-        globalStagger: project.globalStagger,
-      });
+      // CRITICAL: This completely replaces the store state with DEEP CLONED project data
+      // Using JSON parse/stringify to ensure NO reference sharing between projects
+      initializeStoreWithProject(project, projectId);
       setCurrentProject(projectId);
     } else {
       navigate('/');
     }
+
+    // Cleanup: clear store when component unmounts to prevent old data from flashing
+    return () => {
+      clearStore();
+    };
   }, [projectId, loadProject, setCurrentProject, navigate]);
 
   // Sync presentation store changes back to project
   useEffect(() => {
-    if (!projectId) return;
-    
+    if (!projectId || activeProjectId !== projectId) return;
+
+    // Deep clone slides to prevent any reference sharing
+    const slidesClone = JSON.parse(JSON.stringify(slides));
+
     updateProject(projectId, {
-      slides,
+      slides: slidesClone,
       currentSlideId,
       theme,
       showLineNumbers,
@@ -124,11 +132,6 @@ export function Editor() {
     globalStagger,
     updateProject,
   ]);
-
-  const durationInFrames = Math.max(1, Math.ceil(slides.reduce((acc, slide) => {
-    const duration = slide.duration || 3000;
-    return acc + (duration / 1000 * 30);
-  }, 0)));
 
   const currentProject = projectId ? loadProject(projectId) : null;
 
@@ -155,8 +158,8 @@ export function Editor() {
       {isEditorExpanded && (
         <div className="fixed inset-0 z-[100] bg-background/98 backdrop-blur-xl flex items-center justify-center">
           <div className="w-full h-full p-4">
-            <CodeEditor 
-              isExpanded={true} 
+            <CodeEditor
+              isExpanded={true}
               onExpand={() => setIsEditorExpanded(false)}
               onCollapse={() => setIsEditorExpanded(false)}
             />
@@ -165,7 +168,7 @@ export function Editor() {
       )}
 
       {(!isPresenting && !isEditorExpanded) && (
-        <Sidebar 
+        <Sidebar
           onNavigateBack={() => navigate('/')}
           projectName={currentProject?.name || 'Untitled Deck'}
           isCollapsed={isSidebarCollapsed}
@@ -200,15 +203,6 @@ export function Editor() {
               <MonitorPlay className="h-3.5 w-3.5" />
               Present
             </Button>
-
-            <Button
-              onClick={() => setIsExporting(true)}
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-            >
-              <Play className="h-3.5 w-3.5" />
-              Export
-            </Button>
           </div>
         </header>
 
@@ -223,74 +217,6 @@ export function Editor() {
             <CodeEditor onExpand={() => setIsEditorExpanded(true)} />
           </div>
         </div>
-
-        {isExporting && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
-            <div className="relative w-full max-w-4xl rounded-xl border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsExporting(false)}
-                className="absolute right-4 top-4"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-
-              <div className="flex flex-col gap-6">
-                <div>
-                  <h2 className="text-xl font-bold">Export Video</h2>
-                  <p className="text-sm text-muted-foreground">Preview your video before exploring.</p>
-                </div>
-
-                <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black relative flex items-center justify-center">
-                  {isProcessing ? (
-                    <div className="flex flex-col items-center gap-2 text-white">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <span className="text-sm font-medium">Generating Preview...</span>
-                    </div>
-                  ) : (
-                    <Player
-                      component={RemotionVideo}
-                      inputProps={{
-                        slides, theme, showLineNumbers, fontSize, lineHeight,
-                        useGlobalTransition, globalTransitionDuration, useGlobalStagger, globalStagger
-                      }}
-                      durationInFrames={durationInFrames}
-                      fps={30}
-                      compositionWidth={1920}
-                      compositionHeight={1080}
-                      style={{ width: '100%', height: '100%' }}
-                      controls
-                      autoPlay
-                      loop
-                    />
-                  )}
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <div className="text-xs text-muted-foreground">
-                    Total Duration: {(durationInFrames / 30).toFixed(1)}s
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => setIsExporting(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => alert("Rendering full MP4 requires a backend or ffmpeg.wasm implementation. This preview confirms the animation logic works!")}
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                      Download MP4
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

@@ -1,38 +1,19 @@
 /**
  * @file useStore.ts
  * @description Centralized state management for OpenSlides using Zustand.
- * @offers
- * - Slide CRUD operations (add, update, remove, reorder).
- * - Global settings management (theme, font size, animations).
- * - Persistent or reactive state accessible across all components.
- * @flow
- * Components subscribe to this store to get and set application state.
- * Any change here triggers re-renders in the UI (e.g., SlidePreview updating after code edits).
+ * IMPORTANT: This store is ONLY for the currently active project's working state.
+ * All persistence is handled by useProjectStore - this store is NOT persisted.
+ * Each time you switch projects, this store is completely reset with that project's data.
  */
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-
 import { v4 as uuidv4 } from "uuid";
 import type { PresentationState, Slide, ThemeName } from "../types";
 
-const INITIAL_CODE = `// Welcome to OpenSlides
-// Feedbacks on @codewiththiha
-function greet() {
-  console.log("Hi, Mom!");
-}`;
-
-const DEFAULT_SLIDE: Slide = {
-  id: uuidv4(),
-  code: INITIAL_CODE,
-  language: "typescript",
-  transitionDuration: 750,
-  stagger: 5,
-  duration: 3000,
-};
-
-const createDefaultState = (): Omit<PresentationState, keyof ZustandStore> => ({
-  slides: [DEFAULT_SLIDE],
-  currentSlideId: DEFAULT_SLIDE.id,
+// This creates the store with proper typing
+export const useStore = create<PresentationState>((set) => ({
+  slides: [],
+  currentSlideId: null,
+  activeProjectId: null,
   theme: "dark-plus",
   isPlaying: false,
   uiMode: "dark",
@@ -44,99 +25,107 @@ const createDefaultState = (): Omit<PresentationState, keyof ZustandStore> => ({
   globalTransitionDuration: 750,
   useGlobalStagger: false,
   globalStagger: 5,
-});
 
-type ZustandStore = Pick<PresentationState,
-  | 'addSlide' | 'updateSlide' | 'removeSlide' | 'setCurrentSlide'
-  | 'setTheme' | 'setUiMode' | 'setShowLineNumbers' | 'setFontSize'
-  | 'setLineHeight' | 'setEditorFontSize' | 'setUseGlobalTransition' | 'setGlobalTransitionDuration'
-  | 'setUseGlobalStagger' | 'setGlobalStagger' | 'reorderSlides'
->;
+  addSlide: () => {
+    const newSlide: Slide = {
+      id: uuidv4(),
+      code: "// New Slide\n// Edit me!",
+      language: "typescript",
+      transitionDuration: 750,
+      stagger: 5,
+      duration: 3000,
+    };
+    set((state) => ({
+      slides: [...state.slides, newSlide],
+      currentSlideId: newSlide.id,
+    }));
+  },
 
-export const useStore = create<PresentationState>()(
-  persist(
-    (set) => ({
-      ...createDefaultState(),
+  updateSlide: (id, updates) =>
+    set((state) => ({
+      slides: state.slides.map((slide) =>
+        slide.id === id ? { ...slide, ...updates } : slide,
+      ),
+    })),
 
-      addSlide: () =>
-        set((state) => {
-          const newSlide: Slide = {
-            id: uuidv4(),
-            code: "// New Slide\n// Edit me!",
-            language: "typescript",
-            transitionDuration: 750,
-            stagger: 5,
-            duration: 3000,
-          };
-          return {
-            slides: [...state.slides, newSlide],
-            currentSlideId: newSlide.id,
-          };
-        }),
-
-      updateSlide: (id, updates) =>
-        set((state) => ({
-          slides: state.slides.map((slide) =>
-            slide.id === id ? { ...slide, ...updates } : slide,
-          ),
-        })),
-
-      removeSlide: (id) =>
-        set((state) => {
-          if (state.slides.length <= 1) return state;
-          const newSlides = state.slides.filter((s) => s.id !== id);
-          const newCurrentId =
-            state.currentSlideId === id ? newSlides[0].id : state.currentSlideId;
-          return {
-            slides: newSlides,
-            currentSlideId: newCurrentId,
-          };
-        }),
-
-      setCurrentSlide: (id) => set({ currentSlideId: id }),
-
-      setTheme: (theme: ThemeName) => set({ theme }),
-
-      setUiMode: (mode) => set({ uiMode: mode }),
-
-      setShowLineNumbers: (show) => set({ showLineNumbers: show }),
-
-      setFontSize: (size) => set({ fontSize: size }),
-
-      setLineHeight: (height) => set({ lineHeight: height }),
-
-      setEditorFontSize: (size) => set({ editorFontSize: size }),
-
-      setUseGlobalTransition: (use) => set({ useGlobalTransition: use }),
-      setGlobalTransitionDuration: (duration) =>
-        set({ globalTransitionDuration: duration }),
-      setUseGlobalStagger: (use) => set({ useGlobalStagger: use }),
-      setGlobalStagger: (stagger) => set({ globalStagger: stagger }),
-
-      reorderSlides: (startIndex, endIndex) =>
-        set((state) => {
-          const result = Array.from(state.slides);
-          const [removed] = result.splice(startIndex, 1);
-          result.splice(endIndex, 0, removed);
-          return { slides: result };
-        }),
+  removeSlide: (id) =>
+    set((state) => {
+      if (state.slides.length <= 1) return state;
+      const deletedIndex = state.slides.findIndex((s) => s.id === id);
+      const newSlides = state.slides.filter((s) => s.id !== id);
+      let newCurrentId = state.currentSlideId;
+      
+      if (state.currentSlideId === id) {
+        // Fall back to previous slide if possible, otherwise next slide, or first slide
+        const fallbackIndex = Math.max(0, deletedIndex - 1);
+        newCurrentId = newSlides[fallbackIndex]?.id || newSlides[0].id;
+      }
+      
+      return {
+        slides: newSlides,
+        currentSlideId: newCurrentId,
+      };
     }),
-    {
-      name: 'openslides-presentation',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        slides: state.slides,
-        currentSlideId: state.currentSlideId,
-        theme: state.theme,
-        showLineNumbers: state.showLineNumbers,
-        fontSize: state.fontSize,
-        lineHeight: state.lineHeight,
-        editorFontSize: state.editorFontSize,
-        useGlobalTransition: state.useGlobalTransition,
-        globalTransitionDuration: state.globalTransitionDuration,
-        useGlobalStagger: state.useGlobalStagger,
-        globalStagger: state.globalStagger,
-      }),
-    }
-  )
-);
+
+  setCurrentSlide: (id) => set({ currentSlideId: id }),
+
+  setTheme: (theme: ThemeName) => set({ theme }),
+
+  setUiMode: (mode) => set({ uiMode: mode }),
+
+  setShowLineNumbers: (show) => set({ showLineNumbers: show }),
+
+  setFontSize: (size) => set({ fontSize: size }),
+
+  setLineHeight: (height) => set({ lineHeight: height }),
+
+  setEditorFontSize: (size) => set({ editorFontSize: size }),
+
+  setUseGlobalTransition: (use) => set({ useGlobalTransition: use }),
+  setGlobalTransitionDuration: (duration) =>
+    set({ globalTransitionDuration: duration }),
+  setUseGlobalStagger: (use) => set({ useGlobalStagger: use }),
+  setGlobalStagger: (stagger) => set({ globalStagger: stagger }),
+
+  reorderSlides: (startIndex, endIndex) =>
+    set((state) => {
+      const result = Array.from(state.slides);
+      const [removed] = result.splice(startIndex, 1);
+      result.splice(endIndex, 0, removed);
+      return { slides: result };
+    }),
+}));
+
+/**
+ * Initialize the store with project data
+ * This COMPLETELY REPLACES the store state - ensuring isolation between projects
+ */
+export const initializeStoreWithProject = (project: any, projectId: string) => {
+  useStore.setState({
+    slides: JSON.parse(JSON.stringify(project.slides)), // Deep clone to prevent reference sharing
+    currentSlideId: project.currentSlideId,
+    activeProjectId: projectId,
+    theme: project.theme,
+    showLineNumbers: project.showLineNumbers,
+    fontSize: project.fontSize,
+    lineHeight: project.lineHeight,
+    editorFontSize: project.editorFontSize || 14,
+    useGlobalTransition: project.useGlobalTransition,
+    globalTransitionDuration: project.globalTransitionDuration,
+    useGlobalStagger: project.useGlobalStagger,
+    globalStagger: project.globalStagger,
+    isPlaying: false,
+    uiMode: 'dark',
+  });
+};
+
+/**
+ * Clear the store (when navigating away from editor)
+ */
+export const clearStore = () => {
+  useStore.setState({
+    slides: [],
+    currentSlideId: null,
+    activeProjectId: null,
+  });
+};
