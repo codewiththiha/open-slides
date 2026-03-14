@@ -14,17 +14,25 @@ function greet() {
   console.log("Hi, Mom!");
 }`;
 
-const createDefaultSlide = (): Slide => ({
+/**
+ * Creates a default slide with the specified language.
+ * @param language - The language for the slide (defaults to typescript)
+ */
+const createDefaultSlide = (language: string = "typescript"): Slide => ({
   id: uuidv4(),
   code: INITIAL_CODE,
-  language: "typescript",
+  language,
   transitionDuration: 750,
   stagger: 5,
   duration: 3000,
 });
 
+/**
+ * Creates a default project with a single slide.
+ * The first slide's language determines the language for all slides in the project.
+ */
 const createDefaultProject = (name: string = "Untitled Deck"): Project => {
-  const defaultSlide = createDefaultSlide();
+  const defaultSlide = createDefaultSlide("typescript");
   const now = Date.now();
   return {
     id: uuidv4(),

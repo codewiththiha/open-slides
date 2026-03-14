@@ -6,10 +6,11 @@ import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent, Label, Slider, Switch } from './ui/all';
 import { Button } from './ui/button';
-import { Maximize2, ChevronLeft, ChevronRight, PanelLeftClose } from 'lucide-react';
+import { Maximize2, ChevronLeft, ChevronRight, PanelLeftClose, Info } from 'lucide-react';
 import type { ThemeName } from '../types';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';
+import { DYNAMIC_LANGUAGE, SUPPORTED_LANGUAGES } from '../types';
 
 interface CodeEditorProps {
   isExpanded?: boolean;
@@ -38,7 +39,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
     useGlobalStagger, setUseGlobalStagger,
     globalStagger, setGlobalStagger
   } = useStore();
-  
+
   const currentSlide = slides.find((s) => s.id === currentSlideId);
   const [highlighter, setHighlighter] = useState<Highlighter | null>(null);
   const [highlightedCode, setHighlightedCode] = useState<string>('');
@@ -47,6 +48,8 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
   const [activeTab, setActiveTab] = useState('code');
 
   const currentIndex = slides.findIndex(s => s.id === currentSlideId);
+  const isFirstSlide = currentIndex === 0;
+  const isDynamicMode = slides[0]?.language === DYNAMIC_LANGUAGE;
 
   useEffect(() => {
     async function loadHighlighter() {
@@ -56,7 +59,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
           'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
           'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
         ],
-        langs: ['javascript', 'typescript', 'jsx', 'tsx', 'css', 'html', 'json', 'python', 'java', 'go', 'rust', 'php'],
+        langs: SUPPORTED_LANGUAGES.map(lang => lang.value),
       });
       setHighlighter(h);
     }
@@ -65,16 +68,31 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
 
   useEffect(() => {
     if (highlighter && currentSlide) {
-      const html = highlighter.codeToHtml(currentSlide.code, {
-        lang: currentSlide.language,
-        theme: theme,
-      });
-      const codeMatch = html.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-      if (codeMatch) {
-        setHighlightedCode(codeMatch[1]);
+      // In dynamic mode, use the slide's own language (but not "dynamic" itself)
+      // If a slide has "dynamic" as language, fallback to typescript for highlighting
+      const effectiveLanguage = isDynamicMode 
+        ? (currentSlide.language === DYNAMIC_LANGUAGE ? 'typescript' : currentSlide.language)
+        : (slides[0]?.language || 'typescript');
+
+      // Handle dynamic mode with fallback to plain text if language not loaded
+      try {
+        const html = highlighter.codeToHtml(currentSlide.code, {
+          lang: effectiveLanguage,
+          theme: theme,
+        });
+        const codeMatch = html.match(/<code[^>]*>([\s\S]*?)<\/code>/);
+        if (codeMatch) {
+          setHighlightedCode(codeMatch[1]);
+        }
+      } catch (e) {
+        // Fallback: if language not available, use plain text
+        setHighlightedCode(currentSlide.code
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;'));
       }
     }
-  }, [highlighter, currentSlide?.code, currentSlide?.language, theme]);
+  }, [highlighter, currentSlide?.code, currentSlide?.language, theme, slides, isDynamicMode]);
 
   const handleScroll = useCallback(() => {
     if (textareaRef.current && preRef.current) {
@@ -222,9 +240,17 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
           <div className="flex-1 flex flex-col gap-1.5 min-h-0">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-medium">Code</Label>
-              <span className="text-[10px] text-muted-foreground font-mono uppercase px-1.5 py-0.5 rounded bg-muted">
-                {currentSlide.language}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {!isFirstSlide && !isDynamicMode && (
+                  <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                    <Info className="h-2.5 w-2.5" />
+                    Locked to Slide 1
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground font-mono uppercase px-1.5 py-0.5 rounded bg-muted">
+                  {isDynamicMode && !isFirstSlide ? currentSlide.language : slides[0]?.language || 'typescript'}
+                </span>
+              </div>
             </div>
             <div className="relative flex-1 rounded-md border bg-muted/10 overflow-hidden shadow-inner">
               {/* Line Numbers */}
@@ -316,24 +342,58 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Language</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Language</Label>
+                    {!isFirstSlide && !isDynamicMode && (
+                      <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                        <Info className="h-2.5 w-2.5" />
+                        Locked
+                      </span>
+                    )}
+                  </div>
                   <select
-                    className="flex h-8 w-full rounded-md border border-input bg-background/50 px-2.5 py-1 text-xs shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={currentSlide.language}
-                    onChange={(e) => updateSlide(currentSlide.id, { language: e.target.value })}
+                    className="flex h-8 w-full rounded-md border border-input bg-background/50 px-2.5 py-1 text-xs shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={isFirstSlide || isDynamicMode ? currentSlide.language : slides[0]?.language || 'typescript'}
+                    onChange={(e) => {
+                      const newLang = e.target.value;
+                      if (isFirstSlide && newLang === DYNAMIC_LANGUAGE) {
+                        // Switching to dynamic mode - keep this slide's language as typescript for display
+                        // but mark the project as dynamic by setting language to "dynamic"
+                        updateSlide(currentSlide.id, { language: DYNAMIC_LANGUAGE });
+                      } else if (isFirstSlide) {
+                        // Changing first slide language - syncs to all slides via useStore
+                        updateSlide(currentSlide.id, { language: newLang });
+                      } else if (isDynamicMode) {
+                        // In dynamic mode, each slide can have its own language
+                        updateSlide(currentSlide.id, { language: newLang });
+                      }
+                    }}
+                    disabled={!isFirstSlide && !isDynamicMode}
+                    title={!isFirstSlide && !isDynamicMode ? "Language is locked to Slide 1's language" : "Select language"}
                   >
-                    <option value="javascript">JavaScript</option>
-                    <option value="typescript">TypeScript</option>
-                    <option value="tsx">React (TSX)</option>
-                    <option value="css">CSS</option>
-                    <option value="html">HTML</option>
-                    <option value="python">Python</option>
-                    <option value="java">Java</option>
-                    <option value="go">Go</option>
-                    <option value="rust">Rust</option>
-                    <option value="php">PHP</option>
-                    <option value="json">JSON</option>
+                    <option value="dynamic">🔄 Dynamic (Mixed Languages)</option>
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <option key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </option>
+                    ))}
                   </select>
+                  {!isFirstSlide && !isDynamicMode && (
+                    <p className="text-[9px] text-muted-foreground mt-1">
+                      Change language on Slide 1 to update all slides
+                    </p>
+                  )}
+                  {isFirstSlide && currentSlide.language === 'dynamic' && (
+                    <p className="text-[9px] text-amber-500 mt-1 flex items-center gap-1">
+                      <Info className="h-2.5 w-2.5" />
+                      Dynamic mode: Each slide can use different languages
+                    </p>
+                  )}
+                  {isDynamicMode && !isFirstSlide && (
+                    <p className="text-[9px] text-muted-foreground mt-1">
+                      Select any language for this slide
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

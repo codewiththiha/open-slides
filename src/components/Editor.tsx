@@ -1,17 +1,19 @@
 /**
  * @file Editor.tsx
  * @description Editor page component that loads project data and provides the editing interface.
+ * Features bottom slide navigation panel with responsive design for mobile devices.
  */
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useCallback, useState } from 'react';
 import { useProjectStore } from '../store/useProjectStore';
 import { useStore, initializeStoreWithProject, clearStore } from '../store/useStore';
-import { Sidebar } from '@/components/Sidebar';
 import { SlidePreview } from '@/components/SlidePreview';
 import { CodeEditor } from '@/components/CodeEditor';
+import { BottomSlidesPanel } from '@/components/BottomSlidesPanel';
 import { Moon, Sun, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from "next-themes";
+import { cn } from '@/lib/utils';
 
 export function Editor() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -41,7 +43,7 @@ export function Editor() {
   const { theme: systemTheme, setTheme: setSystemTheme } = useTheme();
   const [isPresenting, setIsPresenting] = useState(false);
   const [isEditorExpanded, setIsEditorExpanded] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(false);
 
   // Calculate current slide index
   const currentIndex = slides.findIndex(s => s.id === currentSlideId);
@@ -136,7 +138,7 @@ export function Editor() {
   const currentProject = projectId ? loadProject(projectId) : null;
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground transition-colors">
+    <div className="flex h-screen w-full flex-col bg-background text-foreground transition-colors">
       {/* Full Screen Presentation Mode */}
       {isPresenting && (
         <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
@@ -167,57 +169,76 @@ export function Editor() {
         </div>
       )}
 
-      {(!isPresenting && !isEditorExpanded) && (
-        <Sidebar
-          onNavigateBack={() => navigate('/')}
-          projectName={currentProject?.name || 'Untitled Deck'}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-      )}
-
-      <main className="flex flex-1 flex-col overflow-hidden relative">
-        <header className="flex h-12 items-center justify-between border-b bg-card/50 backdrop-blur-sm px-4 flex-shrink-0">
+      {/* Header */}
+      <header className="flex h-12 items-center justify-between border-b bg-card/50 backdrop-blur-sm px-4 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 -ml-1.5 flex-shrink-0"
+            onClick={() => navigate('/')}
+            title="Back to Dashboard"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </Button>
           <div className="font-medium text-xs text-muted-foreground truncate">
             {currentProject?.name || 'Untitled Deck'}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setSystemTheme(systemTheme === 'dark' ? 'light' : 'dark')}
-              title={`Switch to ${systemTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            >
-              {systemTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setSystemTheme(systemTheme === 'dark' ? 'light' : 'dark')}
+            title={`Switch to ${systemTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {systemTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
 
-            <div className="h-4 w-px bg-border mx-1" />
+          <div className="h-4 w-px bg-border mx-1" />
 
-            <Button
-              onClick={() => setIsPresenting(true)}
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-            >
-              <MonitorPlay className="h-3.5 w-3.5" />
-              Present
-            </Button>
-          </div>
-        </header>
+          <Button
+            onClick={() => setIsPresenting(true)}
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+          >
+            <MonitorPlay className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Present</span>
+          </Button>
+        </div>
+      </header>
 
-        <div className="flex flex-1 overflow-hidden">
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Preview and Editor */}
+        <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
+          {/* Preview Area */}
           <div className="flex flex-1 items-center justify-center bg-muted/20 p-4 min-h-0">
             <div className="aspect-video w-full max-w-5xl shadow-2xl rounded-lg overflow-hidden">
               <SlidePreview />
             </div>
           </div>
 
-          <div className="w-[400px] flex-shrink-0 border-l">
+          {/* Editor Panel - Collapsible on mobile */}
+          <div className={cn(
+            "border-l bg-card/50 backdrop-blur-sm flex flex-col",
+            "w-full lg:w-[400px] lg:flex-shrink-0",
+            "h-[40vh] lg:h-auto"
+          )}>
             <CodeEditor onExpand={() => setIsEditorExpanded(true)} />
           </div>
         </div>
-      </main>
+
+        {/* Bottom Slides Panel */}
+        <BottomSlidesPanel
+          isCollapsed={isBottomPanelCollapsed}
+          onToggleCollapse={() => setIsBottomPanelCollapsed(!isBottomPanelCollapsed)}
+        />
+      </div>
     </div>
   );
 }

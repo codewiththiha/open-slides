@@ -10,10 +10,42 @@
  */
 export type FontSize = 12 | 14 | 16 | 18 | 20 | 24 | 28 | 32;
 
+/**
+ * Special language mode that allows mixed languages across slides.
+ * When selected, each slide can have its own language.
+ */
+export const DYNAMIC_LANGUAGE = 'dynamic';
+
+/**
+ * List of supported programming languages for code highlighting.
+ */
+export const SUPPORTED_LANGUAGES = [
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'tsx', label: 'React (TSX)' },
+  { value: 'jsx', label: 'React (JSX)' },
+  { value: 'python', label: 'Python' },
+  { value: 'java', label: 'Java' },
+  { value: 'go', label: 'Go' },
+  { value: 'rust', label: 'Rust' },
+  { value: 'php', label: 'PHP' },
+  { value: 'css', label: 'CSS' },
+  { value: 'html', label: 'HTML' },
+  { value: 'json', label: 'JSON' },
+  { value: 'yaml', label: 'YAML' },
+  { value: 'sql', label: 'SQL' },
+  { value: 'bash', label: 'Bash/Shell' },
+  { value: 'markdown', label: 'Markdown' },
+] as const;
 
 export interface Slide {
   id: string;
   code: string;
+  /**
+   * Language for this slide.
+   * - If project uses dynamic mode (first slide is 'dynamic'), each slide can have its own language.
+   * - Otherwise, all slides use the language from the first slide (this value is ignored).
+   */
   language: string;
   duration: number;
   transitionDuration: number;

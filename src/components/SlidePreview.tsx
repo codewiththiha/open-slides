@@ -6,7 +6,7 @@
  * - Dynamic theme and font scaling (adaptive for editor vs. presentation mode).
  * - Real-time feedback as code is edited.
  * @flow
- * This component listens to the current slide's code and settings, 
+ * This component listens to the current slide's code and settings,
  * using `shiki-magic-move` to animate transitions when the slide or code changes.
  */
 import { ShikiMagicMove } from 'shiki-magic-move/react';
@@ -16,14 +16,15 @@ import { useEffect, useState } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';
 import 'shiki-magic-move/dist/style.css';
 import { cn } from '../lib/utils';
+import { DYNAMIC_LANGUAGE, SUPPORTED_LANGUAGES } from '../types';
 
 export function SlidePreview(props: { isPresenting?: boolean }) {
-  const { 
-    slides, 
-    currentSlideId, 
-    theme, 
-    showLineNumbers, 
-    fontSize, 
+  const {
+    slides,
+    currentSlideId,
+    theme,
+    showLineNumbers,
+    fontSize,
     lineHeight,
     useGlobalTransition,
     globalTransitionDuration,
@@ -33,6 +34,7 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
   const [highlighter, setHighlighter] = useState<Highlighter | null>(null);
 
   const currentSlide = slides.find((s) => s.id === currentSlideId) || slides[0];
+  const isDynamicMode = slides[0]?.language === DYNAMIC_LANGUAGE;
 
   useEffect(() => {
     async function loadHighlighter() {
@@ -42,7 +44,7 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
           'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
           'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
         ],
-        langs: ['javascript', 'typescript', 'jsx', 'tsx', 'css', 'html', 'json', 'python', 'java', 'go', 'rust', 'php'],
+        langs: SUPPORTED_LANGUAGES.map(lang => lang.value),
       });
       setHighlighter(h);
     }
@@ -56,6 +58,12 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
       </div>
     );
   }
+
+  // In dynamic mode, use each slide's own language; otherwise use first slide's language
+  // If language is "dynamic" itself, fallback to typescript for highlighting
+  const effectiveLanguage = isDynamicMode 
+    ? (currentSlide.language === DYNAMIC_LANGUAGE ? 'typescript' : currentSlide.language)
+    : (slides[0]?.language || 'typescript');
 
   // Map theme names to approximate background colors for the "slide" look
   // This ensures the slide looks correct regardless of correct UI mode
@@ -115,8 +123,8 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
           '--font-size': props.isPresenting ? `${(fontSize * 1.15).toFixed(1)}px` : `${fontSize}px`
         }}>
           <ShikiMagicMove
-            key={`${theme}-${showLineNumbers}-${fontSize}`} // Force re-render on theme, lineNumbers, or fontSize change
-            lang={currentSlide.language}
+            key={`${theme}-${showLineNumbers}-${fontSize}-${effectiveLanguage}`} // Force re-render on theme, lineNumbers, fontSize, or language change
+            lang={effectiveLanguage}
             theme={theme}
             highlighter={highlighter}
             code={currentSlide.code}

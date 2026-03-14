@@ -13,7 +13,26 @@
 * **Project Management:** Create, save, and manage multiple presentation projects with local storage persistence.
 * **Modern Editor:** Syntax-highlighted code editor with adjustable font size and collapsible panels.
 * **Presentation Mode:** Full-screen mode with keyboard navigation (ESC to exit).
-* **Flexible Layouts:** Drag-and-drop slide reordering and dedicated settings panel.
+* **Flexible Layouts:** Drag-and-drop slide reordering with bottom navigation panel.
+* **Language Locking:** First slide's language locks all slides for consistent presentations.
+* **Dynamic Mode:** Enable mixed-language slides for multi-language tutorials.
+* **Responsive Design:** Optimized for desktop, tablet, and mobile devices.
+
+---
+
+## 🎯 Language Management
+
+### 🔒 Locked Mode (Default)
+- **First slide controls all**: The language selected on Slide 1 is automatically applied to all slides
+- **Consistent presentations**: Perfect for single-language code tutorials
+- **Easy to change**: Update Slide 1's language to change all slides at once
+- **Visual indicators**: Locked slides show "Locked to Slide 1" with info tooltips
+
+### 🔄 Dynamic Mode
+- **Mixed languages**: Select "🔄 Dynamic (Mixed Languages)" on Slide 1 to enable
+- **Per-slide languages**: Each slide can use a different programming language
+- **Ideal for**: Multi-language comparisons, polyglot tutorials, or framework migrations
+- **Flexible**: Add slides with any language independently
 
 ---
 
@@ -35,18 +54,19 @@
 ```text
 src/
 ├── components/
-│   ├── ui/             # Reusable Radix-based components
-│   ├── CodeEditor.tsx  # Syntax-highlighted editor & settings
-│   ├── Sidebar.tsx     # Slide management & reordering
-│   ├── SlidePreview.tsx # Real-time "Magic Move" viewer
-│   ├── Dashboard.tsx   # Project management dashboard
-│   └── Settings.tsx    # Storage & app settings
+│   ├── ui/                     # Reusable Radix-based components
+│   ├── CodeEditor.tsx          # Syntax-highlighted editor & settings
+│   ├── Editor.tsx              # Main editor page with responsive layout
+│   ├── BottomSlidesPanel.tsx   # Bottom slide navigation (replaces sidebar)
+│   ├── SlidePreview.tsx        # Real-time "Magic Move" viewer
+│   ├── Dashboard.tsx           # Project management dashboard
+│   └── Settings.tsx            # Storage & app settings
 ├── remotion/
-│   └── RemotionVideo.tsx # Video composition logic
+│   └── RemotionVideo.tsx       # Video composition logic
 ├── store/
-│   ├── useStore.ts     # Global state for slides and settings
-│   └── useProjectStore.ts # Project management with localStorage
-└── types.ts            # TypeScript definitions
+│   ├── useStore.ts             # Global state with language locking logic
+│   └── useProjectStore.ts      # Project management with localStorage
+└── types.ts                    # TypeScript definitions & language constants
 ```
 
 ---
@@ -70,6 +90,29 @@ src/
 
 * **Slide Duration:** Set how long each slide remains visible in the final video.
 * **Navigation:** Use `<` and `>` buttons in expanded editor mode to switch slides.
+
+---
+
+## 📱 Responsive UI Layout
+
+### Desktop
+- **Left**: Dashboard navigation (back button)
+- **Center**: Slide preview (aspect ratio maintained)
+- **Right**: Code editor with settings panel
+- **Bottom**: Collapsible slide navigation panel with drag-and-drop
+
+### Mobile/Tablet
+- **Top**: Header with project name and controls
+- **Middle**: Stacked preview and editor (40% height each)
+- **Bottom**: Compact slide navigation (collapsible)
+- **Touch-optimized**: All controls sized for mobile interaction
+
+### Bottom Slide Panel
+- **Horizontal scroll**: Browse slides left-to-right
+- **Drag-and-drop**: Reorder slides by dragging
+- **Quick preview**: See code snippets and language badges
+- **Collapse/Expand**: Toggle visibility with chevron button
+- **Slide info**: Shows slide number, language, and duration
 
 ---
 
@@ -138,3 +181,13 @@ The backend server uses Remotion Renderer to generate MP4 files:
 - Make sure the backend server is running (`npm start` in `/server`)
 - Check if FFmpeg is installed on your system
 - Verify `VITE_API_URL` in `.env` matches your backend port
+
+**Language not changing on all slides?**
+- Only Slide 1 can change the language for all slides (when not in Dynamic mode)
+- Look for the "Locked to Slide 1" indicator on other slides
+- Change the language on Slide 1 to update all slides automatically
+
+**Dynamic mode not working?**
+- Select "🔄 Dynamic (Mixed Languages)" on Slide 1
+- Each subsequent slide can then have its own language
+- First slide uses TypeScript as fallback for highlighting

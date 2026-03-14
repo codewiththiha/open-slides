@@ -8,6 +8,35 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import type { PresentationState, Slide, ThemeName } from "../types";
+import { DYNAMIC_LANGUAGE } from "../types";
+
+/**
+ * Helper function to synchronize all slides' language with the first slide.
+ * If first slide is 'dynamic', each slide keeps its own language.
+ * Otherwise, all slides use the first slide's language.
+ */
+const syncSlideLanguages = (slides: Slide[]): Slide[] => {
+  if (slides.length === 0) return slides;
+  
+  const firstSlideLanguage = slides[0].language;
+  
+  // If first slide is dynamic mode, keep each slide's individual language
+  // But ensure no slide has "dynamic" as language - default to typescript
+  if (firstSlideLanguage === DYNAMIC_LANGUAGE) {
+    return slides.map((slide, index) => 
+      index === 0 
+        ? slide // Keep first slide as-is (it might be "dynamic" as a marker)
+        : { ...slide, language: slide.language === DYNAMIC_LANGUAGE ? 'typescript' : slide.language }
+    );
+  }
+  
+  // Otherwise, force all slides to use the first slide's language
+  return slides.map((slide, index) => 
+    index === 0 
+      ? slide 
+      : { ...slide, language: firstSlideLanguage }
+  );
+};
 
 // This creates the store with proper typing
 export const useStore = create<PresentationState>((set) => ({
@@ -27,26 +56,52 @@ export const useStore = create<PresentationState>((set) => ({
   globalStagger: 5,
 
   addSlide: () => {
-    const newSlide: Slide = {
-      id: uuidv4(),
-      code: "// New Slide\n// Edit me!",
-      language: "typescript",
-      transitionDuration: 750,
-      stagger: 5,
-      duration: 3000,
-    };
-    set((state) => ({
-      slides: [...state.slides, newSlide],
-      currentSlideId: newSlide.id,
-    }));
+    set((state) => {
+      const firstSlideLanguage = state.slides.length > 0 
+        ? state.slides[0].language 
+        : "typescript";
+      
+      // In dynamic mode, new slides default to typescript but can be changed
+      // In normal mode, new slides inherit the first slide's language
+      const newSlideLanguage = firstSlideLanguage === DYNAMIC_LANGUAGE 
+        ? 'typescript' 
+        : firstSlideLanguage;
+      
+      const newSlide: Slide = {
+        id: uuidv4(),
+        code: "// New Slide\n// Edit me!",
+        language: newSlideLanguage,
+        transitionDuration: 750,
+        stagger: 5,
+        duration: 3000,
+      };
+      
+      const newSlides = [...state.slides, newSlide];
+      
+      return {
+        slides: syncSlideLanguages(newSlides),
+        currentSlideId: newSlide.id,
+      };
+    });
   },
 
   updateSlide: (id, updates) =>
-    set((state) => ({
-      slides: state.slides.map((slide) =>
+    set((state) => {
+      const newSlides = state.slides.map((slide) =>
         slide.id === id ? { ...slide, ...updates } : slide,
-      ),
-    })),
+      );
+      
+      // If updating the first slide's language, sync all slides
+      if (updates.language && state.slides[0]?.id === id) {
+        return {
+          slides: syncSlideLanguages(newSlides),
+        };
+      }
+      
+      return {
+        slides: newSlides,
+      };
+    }),
 
   removeSlide: (id) =>
     set((state) => {
@@ -54,13 +109,13 @@ export const useStore = create<PresentationState>((set) => ({
       const deletedIndex = state.slides.findIndex((s) => s.id === id);
       const newSlides = state.slides.filter((s) => s.id !== id);
       let newCurrentId = state.currentSlideId;
-      
+
       if (state.currentSlideId === id) {
         // Fall back to previous slide if possible, otherwise next slide, or first slide
         const fallbackIndex = Math.max(0, deletedIndex - 1);
         newCurrentId = newSlides[fallbackIndex]?.id || newSlides[0].id;
       }
-      
+
       return {
         slides: newSlides,
         currentSlideId: newCurrentId,
