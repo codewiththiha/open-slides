@@ -8,9 +8,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent, Label, Slider, Switch } from 
 import { Button } from './ui/button';
 import { Maximize2, ChevronLeft, ChevronRight, PanelLeftClose, Info } from 'lucide-react';
 import type { ThemeName } from '../types';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';
 import { DYNAMIC_LANGUAGE, SUPPORTED_LANGUAGES } from '../types';
+import { merustmarLanguage } from '@/lib/merustmar-language';
+import { highlightMerustmarCode } from '@/lib/merustmar-highlight';
 
 interface CodeEditorProps {
   isExpanded?: boolean;
@@ -42,7 +44,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
 
   const currentSlide = slides.find((s) => s.id === currentSlideId);
   const [highlighter, setHighlighter] = useState<Highlighter | null>(null);
-  const [highlightedCode, setHighlightedCode] = useState<string>('');
+  const [merustmarAvailable, setMerustmarAvailable] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const [activeTab, setActiveTab] = useState('code');
@@ -51,48 +53,86 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
   const isFirstSlide = currentIndex === 0;
   const isDynamicMode = slides[0]?.language === DYNAMIC_LANGUAGE;
 
+  const effectiveLanguage = isDynamicMode
+    ? (currentSlide?.language === DYNAMIC_LANGUAGE ? 'typescript' : currentSlide?.language)
+    : (slides[0]?.language || 'typescript');
+
   useEffect(() => {
     async function loadHighlighter() {
-      const h = await createHighlighter({
-        themes: [
-          'dark-plus', 'dracula', 'github-dark', 'github-light', 'nord', 'poimandres',
-          'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
-          'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
-        ],
-        langs: SUPPORTED_LANGUAGES.map(lang => lang.value),
-      });
-      setHighlighter(h);
+      try {
+        // Don't include merustmar in initial load — load it separately
+        // so we can catch and log any registration errors precisely
+        const builtInLangs = SUPPORTED_LANGUAGES
+          .filter(lang => lang.value !== 'merustmar')
+          .map(lang => lang.value);
+
+        const h = await createHighlighter({
+          themes: [
+            'dark-plus', 'dracula', 'github-dark', 'github-light', 'nord', 'poimandres',
+            'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
+            'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
+          ],
+          langs: builtInLangs,
+        });
+
+        // Load merustmar separately with explicit error handling
+        try {
+          await h.loadLanguage(merustmarLanguage);
+          const loaded = h.getLoadedLanguages();
+          if (loaded.includes('merustmar')) {
+            console.log('[OpenSlides] ✅ merustmar loaded. All langs:', loaded);
+            setMerustmarAvailable(true);
+          } else {
+            console.warn('[OpenSlides] ⚠️ merustmar not in getLoadedLanguages after loadLanguage:', loaded);
+          }
+        } catch (loadErr) {
+          console.error('[OpenSlides] ❌ merustmar loadLanguage threw:', loadErr);
+        }
+
+        setHighlighter(h);
+      } catch (err) {
+        console.error('[OpenSlides] ❌ createHighlighter failed:', err);
+      }
     }
     loadHighlighter();
   }, []);
 
-  useEffect(() => {
-    if (highlighter && currentSlide) {
-      // In dynamic mode, use the slide's own language (but not "dynamic" itself)
-      // If a slide has "dynamic" as language, fallback to typescript for highlighting
-      const effectiveLanguage = isDynamicMode 
-        ? (currentSlide.language === DYNAMIC_LANGUAGE ? 'typescript' : currentSlide.language)
-        : (slides[0]?.language || 'typescript');
+  const highlightedCode = useMemo(() => {
+    if (!currentSlide) return '';
 
-      // Handle dynamic mode with fallback to plain text if language not loaded
-      try {
-        const html = highlighter.codeToHtml(currentSlide.code, {
-          lang: effectiveLanguage,
-          theme: theme,
-        });
-        const codeMatch = html.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-        if (codeMatch) {
-          setHighlightedCode(codeMatch[1]);
+    // Try Shiki first (including merustmar)
+    if (highlighter) {
+      const langToUse = effectiveLanguage;
+      const isLoaded = highlighter.getLoadedLanguages().includes(langToUse);
+
+      if (isLoaded) {
+        try {
+          const html = highlighter.codeToHtml(currentSlide.code, {
+            lang: langToUse,
+            theme: theme,
+          });
+          const codeMatch = html.match(/<code[^>]*>([\s\S]*?)<\/code>/);
+          if (codeMatch) {
+            return codeMatch[1];
+          }
+        } catch (e) {
+          console.log('[OpenSlides] Shiki codeToHtml failed for lang:', langToUse, e);
         }
-      } catch (e) {
-        // Fallback: if language not available, use plain text
-        setHighlightedCode(currentSlide.code
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;'));
       }
     }
-  }, [highlighter, currentSlide?.code, currentSlide?.language, theme, slides, isDynamicMode]);
+
+    // Fallback: custom highlighter for merustmar
+    if (effectiveLanguage === 'merustmar') {
+      console.log("Fallback Mode")
+      return highlightMerustmarCode(currentSlide.code, true);
+    }
+
+    // Generic fallback for other languages
+    return currentSlide.code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }, [highlighter, currentSlide?.code, effectiveLanguage, theme]);
 
   const handleScroll = useCallback(() => {
     if (textareaRef.current && preRef.current) {
@@ -120,6 +160,17 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
       "flex h-full flex-col border-l bg-card/50 backdrop-blur-sm transition-all duration-300",
       isExpanded && "border-0 bg-card"
     )}>
+      {/* Global style to force white-space:pre on the code overlay — prevents overlap */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        .code-overlay-pre,
+        .code-overlay-pre * {
+          white-space: pre !important;
+          word-wrap: normal !important;
+          overflow-wrap: normal !important;
+        }
+      `}} />
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
         {/* Header Bar */}
         <div className="border-b px-3 py-2 flex items-center justify-between gap-2">
@@ -127,7 +178,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
             <TabsTrigger value="code" className="text-xs px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm">Code</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm">Settings</TabsTrigger>
           </TabsList>
-          
+
           <div className="flex items-center gap-1">
             {activeTab === 'code' && (
               <>
@@ -248,7 +299,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
                   </span>
                 )}
                 <span className="text-[10px] text-muted-foreground font-mono uppercase px-1.5 py-0.5 rounded bg-muted">
-                  {isDynamicMode && !isFirstSlide ? currentSlide.language : slides[0]?.language || 'typescript'}
+                  {effectiveLanguage}
                 </span>
               </div>
             </div>
@@ -261,38 +312,41 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
                   ))}
                 </div>
               )}
-              
-              {/* Syntax Highlighted Display */}
+
+              {/* Syntax Highlighted Display — white-space:pre forced via CSS class */}
               <pre
                 ref={preRef}
                 className={cn(
+                  "code-overlay-pre",
                   "absolute inset-0 h-full w-full overflow-auto pointer-events-none",
-                  "p-3 font-mono leading-relaxed",
-                  "whitespace-pre-wrap break-words",
+                  "p-3 font-mono",
                   showLineNumbers && "pl-14"
                 )}
                 style={{
                   fontSize: `${editorFontSize}px`,
                   lineHeight: '1.6',
+                  tabSize: 2,
                 }}
                 dangerouslySetInnerHTML={{ __html: highlightedCode || '&nbsp;' }}
               />
-              
-              {/* Transparent Textarea for Editing */}
+
+              {/* Transparent Textarea for Editing — same white-space:pre */}
               <textarea
                 ref={textareaRef}
                 onScroll={handleScroll}
                 className={cn(
                   "absolute inset-0 h-full w-full resize-none",
-                  "bg-transparent p-3 font-mono leading-relaxed outline-none",
+                  "bg-transparent p-3 font-mono outline-none",
                   "text-transparent caret-primary selection:bg-primary/20",
-                  "whitespace-pre-wrap break-words",
                   "scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent",
                   showLineNumbers && "pl-14"
                 )}
                 style={{
                   fontSize: `${editorFontSize}px`,
                   lineHeight: '1.6',
+                  tabSize: 2,
+                  whiteSpace: 'pre',
+                  border: 'none',
                   caretColor: 'hsl(var(--primary))',
                 }}
                 value={currentSlide.code}
@@ -313,7 +367,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
               <div>
                 <Label className="text-xs font-semibold">Appearance</Label>
               </div>
-              
+
               <div className="space-y-2.5">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Theme</Label>
@@ -357,14 +411,10 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
                     onChange={(e) => {
                       const newLang = e.target.value;
                       if (isFirstSlide && newLang === DYNAMIC_LANGUAGE) {
-                        // Switching to dynamic mode - keep this slide's language as typescript for display
-                        // but mark the project as dynamic by setting language to "dynamic"
                         updateSlide(currentSlide.id, { language: DYNAMIC_LANGUAGE });
                       } else if (isFirstSlide) {
-                        // Changing first slide language - syncs to all slides via useStore
                         updateSlide(currentSlide.id, { language: newLang });
                       } else if (isDynamicMode) {
-                        // In dynamic mode, each slide can have its own language
                         updateSlide(currentSlide.id, { language: newLang });
                       }
                     }}
@@ -442,7 +492,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
               <div>
                 <Label className="text-xs font-semibold">Animation</Label>
               </div>
-              
+
               <div className="space-y-2.5">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -504,7 +554,7 @@ export function CodeEditor({ isExpanded = false, onExpand, onCollapse }: CodeEdi
               <div>
                 <Label className="text-xs font-semibold">Playback</Label>
               </div>
-              
+
               <div className="space-y-1.5">
                 <div className="flex justify-between">
                   <Label className="text-[10px] text-muted-foreground">Duration</Label>

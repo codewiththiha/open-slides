@@ -36,6 +36,7 @@ export const SUPPORTED_LANGUAGES = [
   { value: 'sql', label: 'SQL' },
   { value: 'bash', label: 'Bash/Shell' },
   { value: 'markdown', label: 'Markdown' },
+  { value: 'merustmar', label: 'Merustmar' },
 ] as const;
 
 export interface Slide {
@@ -128,7 +129,7 @@ export interface Project {
 export interface ProjectState {
   projects: Project[];
   currentProjectId: string | null;
-  
+
   createProject: (name?: string) => string;
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;

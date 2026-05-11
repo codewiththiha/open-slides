@@ -1,13 +1,6 @@
 /**
  * @file SlidePreview.tsx
  * @description The live preview engine for the current slide.
- * @offers
- * - Shiki-powered syntax highlighting with "Magic Move" transitions.
- * - Dynamic theme and font scaling (adaptive for editor vs. presentation mode).
- * - Real-time feedback as code is edited.
- * @flow
- * This component listens to the current slide's code and settings,
- * using `shiki-magic-move` to animate transitions when the slide or code changes.
  */
 import { ShikiMagicMove } from 'shiki-magic-move/react';
 
@@ -17,6 +10,12 @@ import { createHighlighter, type Highlighter } from 'shiki';
 import 'shiki-magic-move/dist/style.css';
 import { cn } from '../lib/utils';
 import { DYNAMIC_LANGUAGE, SUPPORTED_LANGUAGES } from '../types';
+import { merustmarLanguage } from '@/lib/merustmar-language';
+import { highlightMerustmarCode } from '@/lib/merustmar-highlight';
+
+const LIGHT_THEMES = new Set([
+  'github-light', 'min-light', 'solarized-light', 'catppuccin-latte'
+]);
 
 export function SlidePreview(props: { isPresenting?: boolean }) {
   const {
@@ -38,20 +37,38 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
 
   useEffect(() => {
     async function loadHighlighter() {
-      const h = await createHighlighter({
-        themes: [
-          'dark-plus', 'dracula', 'github-dark', 'github-light', 'nord', 'poimandres',
-          'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
-          'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
-        ],
-        langs: SUPPORTED_LANGUAGES.map(lang => lang.value),
-      });
-      setHighlighter(h);
+      try {
+        const builtInLangs = SUPPORTED_LANGUAGES
+          .filter(lang => lang.value !== 'merustmar')
+          .map(lang => lang.value);
+
+        const h = await createHighlighter({
+          themes: [
+            'dark-plus', 'dracula', 'github-dark', 'github-light', 'nord', 'poimandres',
+            'min-light', 'min-dark', 'monokai', 'solarized-dark', 'solarized-light',
+            'andromeeda', 'aurora-x', 'catppuccin-latte', 'catppuccin-mocha', 'night-owl'
+          ],
+          langs: builtInLangs,
+        });
+
+        // Load merustmar separately
+        try {
+          await h.loadLanguage(merustmarLanguage);
+          const loaded = h.getLoadedLanguages();
+          console.log('[OpenSlides Preview] ✅ merustmar loaded:', loaded.includes('merustmar'));
+        } catch (loadErr) {
+          console.error('[OpenSlides Preview] ❌ merustmar loadLanguage threw:', loadErr);
+        }
+
+        setHighlighter(h);
+      } catch (err) {
+        console.error('[OpenSlides Preview] ❌ createHighlighter failed:', err);
+      }
     }
     loadHighlighter();
   }, []);
 
-  if (!highlighter || !currentSlide) {
+  if (!currentSlide) {
     return (
       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
         Loading magic...
@@ -59,14 +76,10 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
     );
   }
 
-  // In dynamic mode, use each slide's own language; otherwise use first slide's language
-  // If language is "dynamic" itself, fallback to typescript for highlighting
-  const effectiveLanguage = isDynamicMode 
+  const effectiveLanguage = isDynamicMode
     ? (currentSlide.language === DYNAMIC_LANGUAGE ? 'typescript' : currentSlide.language)
     : (slides[0]?.language || 'typescript');
 
-  // Map theme names to approximate background colors for the "slide" look
-  // This ensures the slide looks correct regardless of correct UI mode
   const getThemeBg = (t: string) => {
     switch (t) {
       case 'github-light': return '#ffffff';
@@ -89,6 +102,48 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
   };
 
   const slideBg = getThemeBg(theme);
+  const isDarkBg = !LIGHT_THEMES.has(theme);
+
+  // Check if Shiki can handle this language
+  const canUseShiki = highlighter && highlighter.getLoadedLanguages().includes(effectiveLanguage);
+
+  // --- Merustmar custom fallback (when Shiki can't load the grammar) ---
+  if (effectiveLanguage === 'merustmar' && !canUseShiki) {
+    const highlightedHtml = highlightMerustmarCode(currentSlide.code, isDarkBg);
+
+    return (
+      <div
+        className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl shadow-2xl transition-colors duration-500"
+        style={{ backgroundColor: slideBg }}
+      >
+        <div className={cn(
+          "relative z-10 w-full flex items-center justify-center",
+          props.isPresenting ? "p-32" : "p-12"
+        )}>
+          <div style={{
+            width: '100%',
+            lineHeight: lineHeight.toString(),
+            fontSize: props.isPresenting ? `${(fontSize * 1.15).toFixed(1)}px` : `${fontSize}px`
+          }}>
+            <pre
+              className="font-medium tracking-wide font-mono"
+              style={{ backgroundColor: 'transparent', margin: 0, whiteSpace: 'pre' }}
+              dangerouslySetInnerHTML={{ __html: highlightedHtml || '&nbsp;' }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ShikiMagicMove for all languages Shiki supports (including merustmar if loaded) ---
+  if (!highlighter || !canUseShiki) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+        Loading magic...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -97,11 +152,10 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
     >
       <div className={cn(
         "relative z-10 w-full flex items-center justify-center",
-        // If presenting, use much larger padding/container
         props.isPresenting ? "p-32" : "p-12"
       )}>
-        {/* Force Shiki to be transparent so it blends with our container bg */}
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           .shiki-magic-move-container,
           .shiki-magic-move-container pre,
           .shiki-magic-move-container code {
@@ -118,12 +172,10 @@ export function SlidePreview(props: { isPresenting?: boolean }) {
           // @ts-ignore
           '--line-height': lineHeight.toString(),
           // @ts-ignore
-          // Presentation mode uses 1.15x font size for minimal zoom effect
-          // Keeps relative size - small preview = small presentation, just slightly larger
           '--font-size': props.isPresenting ? `${(fontSize * 1.15).toFixed(1)}px` : `${fontSize}px`
         }}>
           <ShikiMagicMove
-            key={`${theme}-${showLineNumbers}-${fontSize}-${effectiveLanguage}`} // Force re-render on theme, lineNumbers, fontSize, or language change
+            key={`${theme}-${showLineNumbers}-${fontSize}-${effectiveLanguage}`}
             lang={effectiveLanguage}
             theme={theme}
             highlighter={highlighter}
